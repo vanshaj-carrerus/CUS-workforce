@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mainNav, bottomNav } from "@/lib/nav";
 import { useAuth } from "@/lib/auth-context";
+import { isSuperAdmin } from "@/lib/permissions";
 import { Logo } from "@/components/ui/Logo";
 
 function NavLink({
@@ -40,7 +41,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const visibleMain = mainNav.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+  const visibleMain = mainNav.filter((item) => {
+    if (item.superAdminOnly) return isSuperAdmin(user);
+    return !item.roles || (user && item.roles.includes(user.role));
+  });
 
   return (
     <div className="flex h-full flex-col">

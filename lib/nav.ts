@@ -11,6 +11,7 @@ import {
   UserPlus,
   Settings,
   HelpCircle,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./types";
@@ -20,6 +21,8 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   roles?: Role[];
+  /** Visible only to the owner account (see lib/permissions.ts), regardless of role. */
+  superAdminOnly?: boolean;
 }
 
 export const mainNav: NavItem[] = [
@@ -33,6 +36,7 @@ export const mainNav: NavItem[] = [
   { label: "HR Helpdesk", href: "/helpdesk", icon: LifeBuoy },
   { label: "Employee Records", href: "/employees", icon: UserPlus, roles: ["hr-admin"] },
   { label: "HR Admin Analytics", href: "/admin", icon: BarChart3, roles: ["hr-admin"] },
+  { label: "Admin Panel", href: "/admin-panel", icon: ShieldCheck, superAdminOnly: true },
 ];
 
 export const bottomNav: NavItem[] = [

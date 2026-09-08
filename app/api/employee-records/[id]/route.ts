@@ -44,6 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (typeof body[field] === "string") update[field] = body[field];
     }
     if (body.status === "Active" || body.status === "Inactive") update.status = body.status;
+    if (body.role === "employee" || body.role === "manager" || body.role === "hr-admin") update.role = body.role;
     if (body.salary !== undefined) update.salary = Number(body.salary) || 0;
     if (body.weekendOff !== undefined) update.weekendOff = normalizeWeekendOff(body.weekendOff);
 
