@@ -28,9 +28,21 @@ export async function POST(request: Request) {
     }
 
     const setupToken = crypto.randomUUID();
+    const db = await getDb();
+    const collection = db.collection<EmployeeRecord>("employeeRecords");
+
+    let id = "";
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = `CT-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (!(await collection.findOne({ id: candidate }, { projection: { _id: 1 } }))) {
+        id = candidate;
+        break;
+      }
+    }
+    if (!id) id = `CT-${Date.now().toString().slice(-6)}`;
 
     const doc: EmployeeRecord = {
-      id: `CT-${Math.floor(4000 + Math.random() * 900)}`,
+      id,
       fullName: body.fullName,
       fatherName: body.fatherName ?? "",
       dateOfBirth: body.dateOfBirth ?? "",
@@ -49,8 +61,7 @@ export async function POST(request: Request) {
       setupToken,
     };
 
-    const db = await getDb();
-    await db.collection("employeeRecords").insertOne({ ...doc });
+    await collection.insertOne({ ...doc });
 
     const origin = request.headers.get("origin") ?? `http://${request.headers.get("host") ?? "localhost:3000"}`;
     const { sent } = await sendAccessEmail({
