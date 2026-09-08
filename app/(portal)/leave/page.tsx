@@ -15,7 +15,7 @@ import { Input, Select, Textarea, Label } from "@/components/ui/Field";
 import { Table, Thead, Th, Tr, Td, TableWrap } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
-import { CalendarDays, HeartPulse, Coffee, MinusCircle, PlusCircle, type LucideIcon } from "lucide-react";
+import { CalendarDays, HeartPulse, Coffee, type LucideIcon } from "lucide-react";
 import { formatDate, countLeaveDays } from "@/lib/utils";
 import type { LeaveRequest, LeaveBalance } from "@/lib/types";
 
@@ -66,10 +66,6 @@ export default function LeavePage() {
     }, 15000);
     return () => clearInterval(timer);
   }, [user, isHr]);
-
-  const used = leaveBalances.reduce((sum, b) => sum + b.used, 0);
-  const total = leaveBalances.reduce((sum, b) => sum + b.total, 0);
-  const remaining = total - used;
 
   async function handleApply(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -144,24 +140,20 @@ export default function LeavePage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)
+          Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
         ) : (
-          <>
-            {leaveBalances.map((b) => (
-              <StatCard
-                key={b.type}
-                label={b.type}
-                value={`${b.total - b.used} left`}
-                icon={balanceIcons[b.type] ?? CalendarDays}
-                hint={`${b.used} of ${b.total} used`}
-                accent="brand"
-              />
-            ))}
-            <StatCard label="Used Leave" value={`${used} days`} icon={MinusCircle} accent="warning" />
-            <StatCard label="Remaining Leave" value={`${remaining} days`} icon={PlusCircle} accent="success" />
-          </>
+          leaveBalances.map((b) => (
+            <StatCard
+              key={b.type}
+              label={b.type}
+              value={`${b.total - b.used} left`}
+              icon={balanceIcons[b.type] ?? CalendarDays}
+              hint={`${b.used} of ${b.total} used`}
+              accent="brand"
+            />
+          ))
         )}
       </div>
 
