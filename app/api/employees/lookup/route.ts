@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const record = await db
       .collection<EmployeeRecord>("employeeRecords")
       .findOne({ $or: [{ email: re }, { id: re }] }, { projection: { _id: 0 } });
-    if (record) {
+    if (record && record.status !== "Inactive") {
       return NextResponse.json(employeeRecordToEmployee(record));
     }
 

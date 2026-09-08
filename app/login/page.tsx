@@ -52,6 +52,8 @@ export default function LoginPage() {
       setNeedsSetup(true);
     } else if (result.error === "invalid-password") {
       showToast("Incorrect password. Please try again.", "warning");
+    } else if (result.error === "account-suspended") {
+      showToast("This account has been suspended. Contact your HR administrator.", "warning");
     } else if (result.error === "not-found") {
       showToast("We couldn't find an account with that email or employee ID.", "warning");
     } else {

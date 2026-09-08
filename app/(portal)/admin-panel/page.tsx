@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, ShieldCheck, Check, X, Users, ClipboardCheck, KeyRound } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Check, X, Users, ClipboardCheck, KeyRound, Ban, RotateCcw, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
-import { apiGet, apiPatch } from "@/lib/api-client";
+import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import { isSuperAdmin } from "@/lib/permissions";
 import { roleLabel } from "@/lib/role-label";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -12,8 +12,10 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, Thead, Th, Tr, Td, TableWrap } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmDialog } from "@/components/ui/Modal";
 import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { formatDate, countLeaveDays } from "@/lib/utils";
 import type { Employee, EmployeeRecord, LeaveRequest, Role } from "@/lib/types";
@@ -28,6 +30,8 @@ export default function AdminPanelPage() {
   const [records, setRecords] = useState<EmployeeRecord[]>([]);
   const [approvals, setApprovals] = useState<LeaveRequest[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const allowed = isSuperAdmin(user);
 
@@ -83,6 +87,39 @@ export default function AdminPanelPage() {
       showToast("Failed to update permissions. Please try again.", "warning");
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function handleToggleStatus(record: EmployeeRecord) {
+    const nextStatus = record.status === "Inactive" ? "Active" : "Inactive";
+    setUpdatingId(record.id);
+    try {
+      const updated = await apiPatch<EmployeeRecord>(`/api/employee-records/${record.id}`, { status: nextStatus });
+      setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      showToast(
+        nextStatus === "Inactive"
+          ? `${record.fullName}'s account has been suspended. They can no longer log in.`
+          : `${record.fullName}'s account has been reactivated.`
+      );
+    } catch {
+      showToast("Failed to update account status. Please try again.", "warning");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/employee-records/${deleteTarget.id}`);
+      setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      showToast(`${deleteTarget.fullName}'s account has been deleted.`);
+    } catch {
+      showToast("Failed to delete the account. Please try again.", "warning");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   }
 
@@ -160,7 +197,7 @@ export default function AdminPanelPage() {
       <Card>
         <CardHeader
           title="Manage Permissions"
-          subtitle="Grant or revoke HR / manager access for any employee added through Employee Records or QR onboarding"
+          subtitle="Grant or revoke access, suspend, or permanently delete any employee added through Employee Records or QR onboarding"
         />
         {loading ? (
           <TableSkeleton />
@@ -174,31 +211,68 @@ export default function AdminPanelPage() {
                   <Th>Employee ID</Th>
                   <Th>Full Name</Th>
                   <Th>Email</Th>
+                  <Th>Status</Th>
                   <Th>Access Level</Th>
+                  <Th>Actions</Th>
                 </tr>
               </Thead>
               <tbody>
-                {records.map((r) => (
-                  <Tr key={r.id}>
-                    <Td className="font-medium">{r.id}</Td>
-                    <Td>{r.fullName}</Td>
-                    <Td className="text-muted">{r.email}</Td>
-                    <Td>
-                      <Select
-                        value={r.role ?? "employee"}
-                        disabled={updatingId === r.id}
-                        onChange={(e) => handleRoleChange(r, e.target.value as Role)}
-                        className="!w-auto !py-1.5 !text-xs"
-                      >
-                        {roleOptions.map((role) => (
-                          <option key={role} value={role}>
-                            {roleLabel[role]}
-                          </option>
-                        ))}
-                      </Select>
-                    </Td>
-                  </Tr>
-                ))}
+                {records.map((r) => {
+                  const isSelf = r.id === user?.employeeId;
+                  return (
+                    <Tr key={r.id}>
+                      <Td className="font-medium">{r.id}</Td>
+                      <Td>{r.fullName}</Td>
+                      <Td className="text-muted">{r.email}</Td>
+                      <Td>
+                        <StatusBadge status={r.status} />
+                      </Td>
+                      <Td>
+                        <Select
+                          value={r.role ?? "employee"}
+                          disabled={updatingId === r.id || isSelf}
+                          onChange={(e) => handleRoleChange(r, e.target.value as Role)}
+                          className="!w-auto !py-1.5 !text-xs"
+                        >
+                          {roleOptions.map((role) => (
+                            <option key={role} value={role}>
+                              {roleLabel[role]}
+                            </option>
+                          ))}
+                        </Select>
+                      </Td>
+                      <Td>
+                        {isSelf ? (
+                          <span className="text-xs text-muted">This is you</span>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleToggleStatus(r)}
+                              disabled={updatingId === r.id}
+                              className="flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
+                            >
+                              {r.status === "Inactive" ? (
+                                <>
+                                  <RotateCcw className="h-3.5 w-3.5" /> Activate
+                                </>
+                              ) : (
+                                <>
+                                  <Ban className="h-3.5 w-3.5" /> Suspend
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget(r)}
+                              className="flex items-center gap-1 text-sm font-medium text-danger hover:underline"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
           </TableWrap>
@@ -232,6 +306,20 @@ export default function AdminPanelPage() {
           </TableWrap>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        onConfirm={handleDeleteAccount}
+        title="Delete employee account"
+        description={
+          deleteTarget
+            ? `Permanently delete ${deleteTarget.fullName}'s (${deleteTarget.id}) account? They will immediately lose portal access. This cannot be undone.`
+            : ""
+        }
+        confirmLabel={deleting ? "Deleting..." : "Delete"}
+        danger
+      />
     </div>
   );
 }

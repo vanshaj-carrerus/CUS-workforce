@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import type { Employee } from "./types";
 
-export type LoginError = "not-found" | "invalid-password" | "password-not-set" | "network-error";
+export type LoginError = "not-found" | "invalid-password" | "password-not-set" | "account-suspended" | "network-error";
 export type LoginResult = { ok: true; employee: Employee } | { ok: false; error: LoginError };
 
 interface AuthContextValue {
@@ -57,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
 
       if (!res.ok) {
-        const error: LoginError = data.error === "invalid-password" || data.error === "password-not-set" ? data.error : "not-found";
+        const knownErrors: LoginError[] = ["invalid-password", "password-not-set", "account-suspended"];
+        const error: LoginError = knownErrors.includes(data.error) ? data.error : "not-found";
         return { ok: false, error };
       }
 

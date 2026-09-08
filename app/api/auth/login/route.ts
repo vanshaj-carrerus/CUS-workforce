@@ -29,6 +29,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "not-found" }, { status: 404 });
     }
 
+    if (record.status === "Inactive") {
+      return NextResponse.json({ error: "account-suspended" }, { status: 403 });
+    }
+
     if (!record.passwordSet || !record.passwordHash) {
       return NextResponse.json({ error: "password-not-set", email: record.email }, { status: 403 });
     }

@@ -21,7 +21,9 @@ type StatusKind =
   | "Processing"
   | "full-day"
   | "half-day"
-  | "not-marked";
+  | "not-marked"
+  | "Active"
+  | "Inactive";
 
 const config: Record<StatusKind, { label: string; className: string; dot: string }> = {
   pending: { label: "Pending", className: "bg-warning-bg text-warning", dot: "bg-warning" },
@@ -45,6 +47,8 @@ const config: Record<StatusKind, { label: string; className: string; dot: string
   "full-day": { label: "Full Day", className: "bg-success-bg text-success", dot: "bg-success" },
   "half-day": { label: "Half Day", className: "bg-warning-bg text-warning", dot: "bg-warning" },
   "not-marked": { label: "Not Marked", className: "bg-slate-100 text-slate-400", dot: "bg-slate-300" },
+  Active: { label: "Active", className: "bg-success-bg text-success", dot: "bg-success" },
+  Inactive: { label: "Suspended", className: "bg-danger-bg text-danger", dot: "bg-danger" },
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
