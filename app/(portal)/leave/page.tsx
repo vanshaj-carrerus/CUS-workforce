@@ -20,6 +20,7 @@ import { formatDate, countLeaveDays } from "@/lib/utils";
 import type { Employee, EmployeeRecord, LeaveRequest, LeaveBalance } from "@/lib/types";
 
 const leaveTypes = ["Annual Leave", "Sick Leave", "Casual Leave"];
+const ALL_EMPLOYEES = "__all__";
 
 const balanceIcons: Record<string, LucideIcon> = {
   "Annual Leave": CalendarDays,
@@ -75,13 +76,18 @@ export default function LeavePage() {
           ...records.map((r) => ({ id: r.id, name: r.fullName })),
         ];
         setRoster(combined);
-        if (combined.length > 0) setBalanceTarget((prev) => prev || combined[0].id);
+        setBalanceTarget((prev) => prev || ALL_EMPLOYEES);
       }
     );
   }, [isHr]);
 
   useEffect(() => {
     if (!isHr || !balanceTarget) return;
+    if (balanceTarget === ALL_EMPLOYEES) {
+      setTargetBalances([]);
+      setBalanceDrafts({ "Annual Leave": "", "Sick Leave": "", "Casual Leave": "" });
+      return;
+    }
     apiGet<LeaveBalance[]>(`/api/leave-balances?employeeId=${encodeURIComponent(balanceTarget)}`).then((balances) => {
       setTargetBalances(balances);
       const drafts: Record<string, string> = {};
@@ -147,12 +153,22 @@ export default function LeavePage() {
     }
     setSavingType(type);
     try {
-      const updated = await apiPatch<LeaveBalance>("/api/leave-balances", { employeeId: balanceTarget, type, total });
-      setTargetBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
-      if (balanceTarget === user?.employeeId) {
-        setLeaveBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
+      if (balanceTarget === ALL_EMPLOYEES) {
+        await Promise.all(
+          roster.map((r) => apiPatch<LeaveBalance>("/api/leave-balances", { employeeId: r.id, type, total }))
+        );
+        if (roster.some((r) => r.id === user?.employeeId)) {
+          setLeaveBalances((prev) => prev.map((b) => (b.type === type ? { ...b, total } : b)));
+        }
+        showToast(`${type} total set to ${total} days for all ${roster.length} employees.`);
+      } else {
+        const updated = await apiPatch<LeaveBalance>("/api/leave-balances", { employeeId: balanceTarget, type, total });
+        setTargetBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
+        if (balanceTarget === user?.employeeId) {
+          setLeaveBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
+        }
+        showToast(`${type} total set to ${total} days.`);
       }
-      showToast(`${type} total set to ${total} days.`);
     } catch {
       showToast("Failed to update leave balance. Please try again.", "warning");
     } finally {
@@ -216,6 +232,7 @@ export default function LeavePage() {
             <div className="max-w-xs">
               <Label htmlFor="balance-target">Employee</Label>
               <Select id="balance-target" value={balanceTarget} onChange={(e) => setBalanceTarget(e.target.value)}>
+                <option value={ALL_EMPLOYEES}>All Employees ({roster.length})</option>
                 {roster.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name} · {r.id}
@@ -229,7 +246,13 @@ export default function LeavePage() {
                 return (
                   <div key={type} className="rounded-xl border border-border p-3.5">
                     <p className="text-sm font-medium text-foreground">{type}</p>
-                    <p className="mt-0.5 text-xs text-muted">{balance ? `${balance.used} days already used` : ""}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {balanceTarget === ALL_EMPLOYEES
+                        ? "Sets this total for every employee"
+                        : balance
+                          ? `${balance.used} days already used`
+                          : ""}
+                    </p>
                     <div className="mt-2.5 flex items-center gap-2">
                       <Input
                         type="number"
