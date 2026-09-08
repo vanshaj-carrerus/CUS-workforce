@@ -6,7 +6,14 @@ if (!uri) {
   throw new Error('Missing MONGODB_URI environment variable. Add it to ".env.local".');
 }
 
-const options = {};
+// maxIdleTimeMS keeps the driver from handing out a socket that went stale while a
+// serverless function instance was frozen between invocations (the cause of
+// "tlsv1 alert internal error" on Vercel) by proactively closing idle connections
+// instead of reusing them.
+const options = {
+  maxIdleTimeMS: 10000,
+  maxPoolSize: 10,
+};
 
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
