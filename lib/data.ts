@@ -1,7 +1,6 @@
 import type {
   Employee,
   AttendanceRecord,
-  LeaveBalance,
   LeaveRequest,
   Announcement,
   PolicyDocument,
@@ -67,12 +66,6 @@ export const employees: Record<Role, Employee> = {
     dateOfBirth: "1988-04-05",
   },
 };
-
-export const leaveBalances: LeaveBalance[] = [
-  { type: "Annual Leave", total: 0, used: 0 },
-  { type: "Sick Leave", total: 0, used: 0 },
-  { type: "Casual Leave", total: 0, used: 0 },
-];
 
 export const leaveHistory: LeaveRequest[] = [
   {

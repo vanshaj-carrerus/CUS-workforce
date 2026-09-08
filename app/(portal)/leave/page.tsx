@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarPlus, Check, X, Upload, Trash2 } from "lucide-react";
+import { CalendarPlus, Check, X, Upload, Trash2, Save } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api-client";
@@ -17,7 +17,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { CalendarDays, HeartPulse, Coffee, type LucideIcon } from "lucide-react";
 import { formatDate, countLeaveDays } from "@/lib/utils";
-import type { LeaveRequest, LeaveBalance } from "@/lib/types";
+import type { Employee, EmployeeRecord, LeaveRequest, LeaveBalance } from "@/lib/types";
+
+const leaveTypes = ["Annual Leave", "Sick Leave", "Casual Leave"];
 
 const balanceIcons: Record<string, LucideIcon> = {
   "Annual Leave": CalendarDays,
@@ -36,6 +38,11 @@ export default function LeavePage() {
   const [approvals, setApprovals] = useState<LeaveRequest[]>([]);
   const [deleteRequest, setDeleteRequest] = useState<LeaveRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
+  const [balanceTarget, setBalanceTarget] = useState("");
+  const [targetBalances, setTargetBalances] = useState<LeaveBalance[]>([]);
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
+  const [savingType, setSavingType] = useState<string | null>(null);
 
   const isHr = user?.role === "hr-admin" || user?.role === "manager";
 
@@ -45,7 +52,7 @@ export default function LeavePage() {
       ? "/api/leave-history?status=decided"
       : `/api/leave-history?employeeId=${encodeURIComponent(user.employeeId)}`;
     const requests: Promise<unknown>[] = [
-      apiGet<LeaveBalance[]>("/api/leave-balances"),
+      apiGet<LeaveBalance[]>(`/api/leave-balances?employeeId=${encodeURIComponent(user.employeeId)}`),
       apiGet<LeaveRequest[]>(historyUrl),
     ];
     if (isHr) requests.push(apiGet<LeaveRequest[]>("/api/leave-approvals"));
@@ -58,6 +65,30 @@ export default function LeavePage() {
       })
       .finally(() => setLoading(false));
   }, [user, isHr]);
+
+  useEffect(() => {
+    if (!isHr) return;
+    Promise.all([apiGet<Employee[]>("/api/employees"), apiGet<EmployeeRecord[]>("/api/employee-records")]).then(
+      ([demo, records]) => {
+        const combined = [
+          ...demo.map((e) => ({ id: e.employeeId, name: e.name })),
+          ...records.map((r) => ({ id: r.id, name: r.fullName })),
+        ];
+        setRoster(combined);
+        if (combined.length > 0) setBalanceTarget((prev) => prev || combined[0].id);
+      }
+    );
+  }, [isHr]);
+
+  useEffect(() => {
+    if (!isHr || !balanceTarget) return;
+    apiGet<LeaveBalance[]>(`/api/leave-balances?employeeId=${encodeURIComponent(balanceTarget)}`).then((balances) => {
+      setTargetBalances(balances);
+      const drafts: Record<string, string> = {};
+      balances.forEach((b) => (drafts[b.type] = String(b.total)));
+      setBalanceDrafts(drafts);
+    });
+  }, [isHr, balanceTarget]);
 
   useEffect(() => {
     if (!user || !isHr) return;
@@ -108,6 +139,27 @@ export default function LeavePage() {
     }
   }
 
+  async function handleSaveBalance(type: string) {
+    const total = Number(balanceDrafts[type]);
+    if (Number.isNaN(total) || total < 0) {
+      showToast("Enter a valid number of days.", "warning");
+      return;
+    }
+    setSavingType(type);
+    try {
+      const updated = await apiPatch<LeaveBalance>("/api/leave-balances", { employeeId: balanceTarget, type, total });
+      setTargetBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
+      if (balanceTarget === user?.employeeId) {
+        setLeaveBalances((prev) => prev.map((b) => (b.type === type ? updated : b)));
+      }
+      showToast(`${type} total set to ${total} days.`);
+    } catch {
+      showToast("Failed to update leave balance. Please try again.", "warning");
+    } finally {
+      setSavingType(null);
+    }
+  }
+
   async function handleDeleteLeave() {
     if (!deleteRequest) return;
     setDeleting(true);
@@ -148,14 +200,59 @@ export default function LeavePage() {
             <StatCard
               key={b.type}
               label={b.type}
-              value={`${b.total - b.used} left`}
+              value={`${b.used}/${b.total}`}
               icon={balanceIcons[b.type] ?? CalendarDays}
-              hint={`${b.used} of ${b.total} used`}
+              hint={`${Math.max(b.total - b.used, 0)} days remaining`}
               accent="brand"
             />
           ))
         )}
       </div>
+
+      {isHr && (
+        <Card>
+          <CardHeader title="Set Leave Balances" subtitle="Set how many days of each leave type an employee gets this year" />
+          <div className="space-y-4">
+            <div className="max-w-xs">
+              <Label htmlFor="balance-target">Employee</Label>
+              <Select id="balance-target" value={balanceTarget} onChange={(e) => setBalanceTarget(e.target.value)}>
+                {roster.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} · {r.id}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {leaveTypes.map((type) => {
+                const balance = targetBalances.find((b) => b.type === type);
+                return (
+                  <div key={type} className="rounded-xl border border-border p-3.5">
+                    <p className="text-sm font-medium text-foreground">{type}</p>
+                    <p className="mt-0.5 text-xs text-muted">{balance ? `${balance.used} days already used` : ""}</p>
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={balanceDrafts[type] ?? ""}
+                        onChange={(e) => setBalanceDrafts((prev) => ({ ...prev, [type]: e.target.value }))}
+                        className="!py-1.5"
+                      />
+                      <button
+                        onClick={() => handleSaveBalance(type)}
+                        disabled={savingType === type}
+                        className="flex shrink-0 items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                      >
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {isHr && (
         <Card>

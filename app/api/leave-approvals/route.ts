@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { createNotification } from "@/lib/notify";
-import { formatDate } from "@/lib/utils";
-import type { LeaveRequest } from "@/lib/types";
+import { formatDate, countLeaveDays } from "@/lib/utils";
+import type { LeaveBalance, LeaveRequest } from "@/lib/types";
 
 export async function GET() {
   try {
@@ -46,6 +46,22 @@ export async function PATCH(request: Request) {
     }
 
     const record = (await db.collection("leaveHistory").findOne({ id }, { projection: { _id: 0 } })) as unknown as LeaveRequest | null;
+
+    if (status === "approved" && record?.employeeId && record.type) {
+      try {
+        const days = record.days > 0 ? record.days : countLeaveDays(record.startDate, record.endDate);
+        await db
+          .collection<LeaveBalance>("leaveBalances")
+          .updateOne(
+            { employeeId: record.employeeId, type: record.type },
+            { $inc: { used: days }, $setOnInsert: { total: 0 } },
+            { upsert: true }
+          );
+      } catch {
+        // Decision is already saved; balance tracking is best-effort.
+      }
+    }
+
     if (record?.employeeId) {
       try {
         await createNotification({

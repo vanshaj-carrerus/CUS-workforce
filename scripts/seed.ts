@@ -1,7 +1,6 @@
 import clientPromise from "../lib/mongodb";
 import {
   employees,
-  leaveBalances,
   leaveHistory,
   teamLeaveApprovals,
   attendanceHistory,
@@ -50,7 +49,6 @@ async function seed() {
 
   const collections: { name: string; docs: unknown[] }[] = [
     { name: "employees", docs: employeeDocs },
-    { name: "leaveBalances", docs: leaveBalances },
     { name: "leaveHistory", docs: leaveHistory },
     { name: "teamLeaveApprovals", docs: teamLeaveApprovals },
     { name: "attendanceHistory", docs: attendanceHistory },

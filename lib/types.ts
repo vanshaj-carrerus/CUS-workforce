@@ -56,6 +56,7 @@ export interface TeamAttendanceRecord {
 export type RequestStatus = "pending" | "in-progress" | "resolved" | "approved" | "rejected";
 
 export interface LeaveBalance {
+  employeeId: string;
   type: string;
   total: number;
   used: number;

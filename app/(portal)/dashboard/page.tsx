@@ -50,7 +50,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      apiGet<LeaveBalance[]>("/api/leave-balances"),
+      apiGet<LeaveBalance[]>(`/api/leave-balances?employeeId=${encodeURIComponent(user.employeeId)}`),
       apiGet<AttendanceRecord[]>(`/api/attendance?employeeId=${encodeURIComponent(user.employeeId)}`),
       apiGet<Holiday[]>("/api/holidays"),
       apiGet<Announcement[]>("/api/announcements"),
