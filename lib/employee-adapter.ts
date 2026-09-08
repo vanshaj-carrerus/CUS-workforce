@@ -9,7 +9,7 @@ export function employeeRecordToEmployee(record: EmployeeRecord): Employee {
     name: record.fullName,
     email: record.email,
     phone: record.mobile,
-    role: "employee",
+    role: record.role ?? "employee",
     designation: record.designation || "Not Assigned",
     department: record.department || "Not Assigned",
     location: record.address || "Not Provided",

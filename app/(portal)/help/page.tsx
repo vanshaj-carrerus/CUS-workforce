@@ -14,10 +14,7 @@ const faqs = [
     q: "How do I apply for leave?",
     a: "Go to Leave Management from the sidebar, click 'Apply for Leave', fill in the leave type, dates, and reason, then submit. Your manager will be notified for approval.",
   },
-  {
-    q: "When are payslips generated?",
-    a: "Payslips are generated on the last working day of each month and are available for download under the Payroll section the same evening.",
-  },
+
   {
     q: "How do I request an attendance correction?",
     a: "Visit the Attendance page and click 'Request Attendance Correction'. Provide the date and reason, and HR will review and update your record.",
