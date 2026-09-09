@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { sendAccessEmail } from "@/lib/mailer";
-import type { EmployeeRecord } from "@/lib/types";
+import type { EmployeeRecord, LeaveBalance } from "@/lib/types";
 import { normalizeWeekendOff } from "@/lib/weekend-off";
+import { annualLeaveForGender } from "@/lib/leave-policy";
 
 export async function GET() {
   const db = await getDb();
@@ -57,11 +58,23 @@ export async function POST(request: Request) {
       weekendOff: normalizeWeekendOff(body.weekendOff),
       status: "Active",
       addedOn: new Date().toISOString().slice(0, 10),
+      gender: body.gender === "Male" || body.gender === "Female" ? body.gender : undefined,
       passwordSet: false,
       setupToken,
     };
 
     await collection.insertOne({ ...doc });
+
+    const annualLeaveTotal = annualLeaveForGender(doc.gender);
+    if (annualLeaveTotal !== null) {
+      await db
+        .collection<LeaveBalance>("leaveBalances")
+        .updateOne(
+          { employeeId: doc.id, type: "Annual Leave" },
+          { $set: { total: annualLeaveTotal }, $setOnInsert: { used: 0 } },
+          { upsert: true }
+        );
+    }
 
     const origin = request.headers.get("origin") ?? `http://${request.headers.get("host") ?? "localhost:3000"}`;
     const { sent } = await sendAccessEmail({

@@ -143,6 +143,7 @@ export interface EmployeeRecord {
   weekendOff: WeekendOffPattern;
   status: "Active" | "Inactive";
   addedOn: string;
+  gender?: "Male" | "Female";
   /** Portal role once this record logs in. Defaults to "employee" when unset. */
   role?: Role;
   passwordHash?: string;

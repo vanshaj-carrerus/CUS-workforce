@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { apiPost } from "@/lib/api-client";
 import { Logo } from "@/components/ui/Logo";
-import { Input, Label, Textarea } from "@/components/ui/Field";
+import { Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import type { EmployeeRecord } from "@/lib/types";
 
@@ -23,6 +23,7 @@ export default function OnboardPage() {
         fullName: form.get("fullName"),
         fatherName: form.get("fatherName"),
         dateOfBirth: form.get("dateOfBirth"),
+        gender: form.get("gender"),
         mobile: form.get("mobile"),
         alternateMobile: form.get("alternateMobile"),
         email: form.get("email"),
@@ -80,9 +81,21 @@ export default function OnboardPage() {
             <Label htmlFor="fatherName">Father&apos;s Name</Label>
             <Input id="fatherName" name="fatherName" placeholder="e.g. Rakesh Gupta" />
           </div>
-          <div>
-            <Label htmlFor="dateOfBirth">Date of Birth</Label>
-            <Input id="dateOfBirth" name="dateOfBirth" type="date" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Input id="dateOfBirth" name="dateOfBirth" type="date" />
+            </div>
+            <div>
+              <Label htmlFor="gender">Gender</Label>
+              <Select id="gender" name="gender" required defaultValue="">
+                <option value="" disabled>
+                  Select gender
+                </option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

@@ -3,8 +3,9 @@ import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { createNotification } from "@/lib/notify";
 import { formatCurrency } from "@/lib/utils";
-import type { EmployeeRecord } from "@/lib/types";
+import type { EmployeeRecord, LeaveBalance } from "@/lib/types";
 import { normalizeWeekendOff } from "@/lib/weekend-off";
+import { annualLeaveForGender } from "@/lib/leave-policy";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,12 +46,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (body.status === "Active" || body.status === "Inactive") update.status = body.status;
     if (body.role === "employee" || body.role === "manager" || body.role === "hr-admin") update.role = body.role;
+    if (body.gender === "Male" || body.gender === "Female") update.gender = body.gender;
     if (body.salary !== undefined) update.salary = Number(body.salary) || 0;
     if (body.weekendOff !== undefined) update.weekendOff = normalizeWeekendOff(body.weekendOff);
 
     const db = await getDb();
     const collection = db.collection<EmployeeRecord>("employeeRecords");
-    const existing = await collection.findOne({ id }, { projection: { salary: 1 } });
+    const existing = await collection.findOne({ id }, { projection: { salary: 1, gender: 1 } });
     const result = await collection.findOneAndUpdate(
       { id },
       { $set: update },
@@ -59,6 +61,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!result) {
       return errorResponse(new Error("Employee record not found"), 404);
+    }
+
+    if (update.gender && existing?.gender !== update.gender) {
+      const annualLeaveTotal = annualLeaveForGender(update.gender);
+      if (annualLeaveTotal !== null) {
+        try {
+          await db
+            .collection<LeaveBalance>("leaveBalances")
+            .updateOne(
+              { employeeId: id, type: "Annual Leave" },
+              { $set: { total: annualLeaveTotal }, $setOnInsert: { used: 0 } },
+              { upsert: true }
+            );
+        } catch {
+          // Record is already updated; balance sync is best-effort.
+        }
+      }
     }
 
     if (typeof update.salary === "number" && existing && existing.salary !== update.salary) {

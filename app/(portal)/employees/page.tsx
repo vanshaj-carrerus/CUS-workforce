@@ -55,6 +55,17 @@ function EmployeeForm({
           <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={defaultValues?.dateOfBirth} />
         </div>
         <div>
+          <Label htmlFor="gender">Gender</Label>
+          <Select id="gender" name="gender" required defaultValue={defaultValues?.gender ?? ""}>
+            <option value="" disabled>
+              Select gender
+            </option>
+            <option value="Female">Female</option>
+            <option value="Male">Male</option>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted">Sets Annual Leave to 12 days for Female, 7 days for Male.</p>
+        </div>
+        <div>
           <Label htmlFor="mobile">Mobile Number</Label>
           <Input id="mobile" name="mobile" type="tel" required placeholder="+91 90000 00000" defaultValue={defaultValues?.mobile} />
         </div>
@@ -184,6 +195,7 @@ export default function EmployeeRecordsPage() {
       fullName: form.get("fullName"),
       fatherName: form.get("fatherName"),
       dateOfBirth: form.get("dateOfBirth"),
+      gender: form.get("gender"),
       mobile: form.get("mobile"),
       alternateMobile: form.get("alternateMobile"),
       email: form.get("email"),
@@ -414,6 +426,10 @@ export default function EmployeeRecordsPage() {
             <div className="flex justify-between border-b border-border pb-2">
               <span className="text-muted">Date of Birth</span>
               <span className="font-medium text-foreground">{viewRecord.dateOfBirth ? formatDate(viewRecord.dateOfBirth) : "—"}</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-2">
+              <span className="text-muted">Gender</span>
+              <span className="font-medium text-foreground">{viewRecord.gender || "—"}</span>
             </div>
             <div className="flex justify-between border-b border-border pb-2">
               <span className="flex items-center gap-1.5 text-muted">
