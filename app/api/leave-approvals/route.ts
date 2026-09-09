@@ -3,10 +3,13 @@ import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { createNotification } from "@/lib/notify";
 import { formatDate, countLeaveDays, dateRange } from "@/lib/utils";
+import { requireRole } from "@/lib/session";
 import type { LeaveBalance, LeaveRequest } from "@/lib/types";
 
 export async function GET() {
   try {
+    const session = await requireRole(["hr-admin", "manager"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const db = await getDb();
     const [fromApprovals, fromHistory] = await Promise.all([
       db.collection("teamLeaveApprovals").find({ status: "pending" }, { projection: { _id: 0 } }).toArray(),
@@ -27,6 +30,8 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await requireRole(["hr-admin", "manager"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const { id, status } = await request.json();
     if (!id || !["approved", "rejected"].includes(status)) {
       return errorResponse(new Error("Invalid id or status"), 400);

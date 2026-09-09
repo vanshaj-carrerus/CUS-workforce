@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, ShieldCheck, Check, X, Users, ClipboardCheck, KeyRound, Ban, RotateCcw, Trash2 } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Check, X, Users, ClipboardCheck, KeyRound, Ban, RotateCcw, Trash2, Mail, Save } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
+import { Input, Label, Select } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, Thead, Th, Tr, Td, TableWrap } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -32,6 +32,9 @@ export default function AdminPanelPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EmployeeRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifyEmailDraft, setNotifyEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const allowed = isSuperAdmin(user);
 
@@ -41,11 +44,14 @@ export default function AdminPanelPage() {
       apiGet<Employee[]>("/api/employees"),
       apiGet<EmployeeRecord[]>("/api/employee-records"),
       apiGet<LeaveRequest[]>("/api/leave-approvals"),
+      apiGet<{ email: string }>("/api/admin/settings"),
     ])
-      .then(([demo, recs, pending]) => {
+      .then(([demo, recs, pending, settings]) => {
         setDemoEmployees(demo);
         setRecords(recs);
         setApprovals(pending);
+        setNotifyEmail(settings.email);
+        setNotifyEmailDraft(settings.email);
       })
       .finally(() => setLoading(false));
   }, [allowed]);
@@ -123,6 +129,20 @@ export default function AdminPanelPage() {
     }
   }
 
+  async function handleSaveNotifyEmail(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSavingEmail(true);
+    try {
+      const result = await apiPatch<{ email: string }>("/api/admin/settings", { email: notifyEmailDraft });
+      setNotifyEmail(result.email);
+      showToast(result.email ? `New leave requests will now email ${result.email}.` : "Approval email notifications turned off.");
+    } catch {
+      showToast("Failed to save notification email. Please try again.", "warning");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
   function leaveDays(r: LeaveRequest) {
     return r.days > 0 ? r.days : countLeaveDays(r.startDate, r.endDate);
   }
@@ -156,6 +176,37 @@ export default function AdminPanelPage() {
           </>
         )}
       </div>
+
+      <Card>
+        <CardHeader
+          title="Approval Email Notifications"
+          subtitle="Get emailed the moment an employee submits a leave request that needs approval"
+        />
+        <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleSaveNotifyEmail}>
+          <div className="flex-1">
+            <Label htmlFor="notify-email">Notification Email</Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                id="notify-email"
+                type="email"
+                placeholder="you@custech.co"
+                value={notifyEmailDraft}
+                onChange={(e) => setNotifyEmailDraft(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          <Button type="submit" loading={savingEmail}>
+            <Save className="h-4 w-4" /> Save
+          </Button>
+        </form>
+        {notifyEmail ? (
+          <p className="mt-2.5 text-xs text-success">Currently sending new-leave-request alerts to {notifyEmail}.</p>
+        ) : (
+          <p className="mt-2.5 text-xs text-muted">No notification email set — leave a blank field and save to turn this off.</p>
+        )}
+      </Card>
 
       <Card>
         <CardHeader title="Pending Approvals" subtitle="Leave requests awaiting a decision, across every employee" />

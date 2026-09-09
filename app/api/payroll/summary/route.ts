@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { teamStatusToEmployeeRecord } from "@/lib/attendance-map";
 import { calculateMonthSalary, normalizeWeekendOff } from "@/lib/weekend-off";
+import { getSessionUser } from "@/lib/session";
 import type { AttendanceRecord, EmployeeRecord, TeamAttendanceRecord } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -12,6 +13,12 @@ export async function GET(request: Request) {
     const employeeId = url.searchParams.get("employeeId");
     if (!/^\d{4}-\d{2}$/.test(month)) {
       return errorResponse(new Error("Invalid month"), 400);
+    }
+
+    const session = await getSessionUser();
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
+    if (session.role !== "hr-admin" && employeeId !== session.employeeId) {
+      return errorResponse(new Error("Unauthorized"), 401);
     }
 
     const db = await getDb();

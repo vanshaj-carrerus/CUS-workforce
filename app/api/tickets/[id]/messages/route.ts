@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
+import { getSessionUser } from "@/lib/session";
 import type { Ticket } from "@/lib/types";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getSessionUser();
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const { id } = await params;
-    const { author, message, role } = await request.json();
+    const { author, message } = await request.json();
     if (!message?.trim()) {
       return errorResponse(new Error("Message is required"), 400);
     }
-    const senderRole: "employee" | "hr" = role === "hr" ? "hr" : "employee";
+    const senderRole: "employee" | "hr" = session.role === "hr-admin" || session.role === "manager" ? "hr" : "employee";
     const newMessage = {
       id: `m-${Date.now()}`,
       author: author ?? (senderRole === "hr" ? "HR Team" : "Employee"),

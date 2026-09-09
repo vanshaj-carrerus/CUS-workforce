@@ -4,12 +4,15 @@ import { errorResponse } from "@/lib/mongo-helpers";
 import { teamStatusToEmployeeRecord } from "@/lib/attendance-map";
 import { createNotification } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
+import { requireRole } from "@/lib/session";
 import type { AttendanceRecord, TeamAttendanceRecord, TeamAttendanceStatus } from "@/lib/types";
 
 const VALID_STATUSES: TeamAttendanceStatus[] = ["full-day", "half-day", "leave", "absent"];
 
 export async function GET(request: Request) {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const date = new URL(request.url).searchParams.get("date");
     if (!date) return errorResponse(new Error("Missing date"), 400);
 
@@ -27,6 +30,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const { employeeId, employeeName, date, status } = await request.json();
     if (!employeeId || !date || !VALID_STATUSES.includes(status)) {
       return errorResponse(new Error("Missing or invalid employeeId, date, or status"), 400);

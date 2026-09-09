@@ -6,10 +6,15 @@ import { formatCurrency } from "@/lib/utils";
 import type { EmployeeRecord, LeaveBalance } from "@/lib/types";
 import { normalizeWeekendOff } from "@/lib/weekend-off";
 import { annualLeaveForGender } from "@/lib/leave-policy";
+import { getSessionUser } from "@/lib/session";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const session = await getSessionUser();
+    if (!session || (session.employeeId !== id && session.role !== "hr-admin")) {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
     const db = await getDb();
     const record = await db
       .collection<EmployeeRecord>("employeeRecords")
@@ -25,6 +30,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role !== "hr-admin") {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
     const { id } = await params;
     const body = await request.json();
 
@@ -105,6 +114,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role !== "hr-admin") {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
     const { id } = await params;
     const db = await getDb();
     const result = await db.collection("employeeRecords").deleteOne({ id });

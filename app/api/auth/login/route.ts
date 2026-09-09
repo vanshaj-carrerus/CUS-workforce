@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { employeeRecordToEmployee } from "@/lib/employee-adapter";
+import { createSession } from "@/lib/session";
 import type { Employee, EmployeeRecord } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
       .findOne({ $or: [{ email: re }, { employeeId: re }] }, { projection: { _id: 0 } });
     if (canonical) {
       // Seeded demo personas keep frictionless mock login regardless of password.
+      await createSession(canonical.employeeId);
       return NextResponse.json({ employee: canonical });
     }
 
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "invalid-password" }, { status: 401 });
     }
 
+    await createSession(record.id);
     return NextResponse.json({ employee: employeeRecordToEmployee(record) });
   } catch (error) {
     return errorResponse(error);

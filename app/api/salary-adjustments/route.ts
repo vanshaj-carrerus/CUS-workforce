@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
 import { createNotification } from "@/lib/notify";
 import { formatSalaryFormula, monthLabel } from "@/lib/utils";
+import { getSessionUser, requireRole } from "@/lib/session";
 import type { EmployeeRecord, SalaryAdjustment } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -11,6 +12,12 @@ export async function GET(request: Request) {
     const month = url.searchParams.get("month");
     const employeeId = url.searchParams.get("employeeId");
     if (!month && !employeeId) return errorResponse(new Error("Missing month or employeeId"), 400);
+
+    const session = await getSessionUser();
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
+    if (session.role !== "hr-admin" && employeeId !== session.employeeId) {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
 
     const filter: Record<string, string> = {};
     if (month) filter.month = month;
@@ -30,6 +37,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const { employeeId, employeeName, month, type, amount, note, createdBy } = await request.json();
     if (!employeeId || !month || (type !== "add" && type !== "cut") || !amount || Number(amount) <= 0) {
       return errorResponse(new Error("Missing or invalid employeeId, month, type, or amount"), 400);

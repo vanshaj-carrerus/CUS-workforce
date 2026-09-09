@@ -15,11 +15,10 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-const STORAGE_KEY = "custech-hr-identifier";
 
-async function lookupEmployee(identifier: string): Promise<Employee | null> {
+async function fetchSessionUser(): Promise<Employee | null> {
   try {
-    const res = await fetch(`/api/employees/lookup?identifier=${encodeURIComponent(identifier)}`);
+    const res = await fetch("/api/auth/me");
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -32,18 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = window.localStorage.getItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-    if (!stored) {
-      setLoading(false);
-      return;
-    }
-    lookupEmployee(stored)
-      .then((emp) => setUser(emp))
+    fetchSessionUser()
+      .then(setUser)
       .finally(() => setLoading(false));
   }, []);
 
@@ -64,11 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const emp: Employee = data.employee;
       setUser(emp);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, emp.employeeId);
-      } catch {
-        // ignore
-      }
       return { ok: true, employee: emp };
     } catch {
       return { ok: false, error: "network-error" };
@@ -77,11 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null);
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, []);
 
   const updateUser = useCallback((patch: Partial<Employee>) => {

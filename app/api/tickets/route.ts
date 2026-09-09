@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { listCollectionResponse, errorResponse } from "@/lib/mongo-helpers";
+import { getSessionUser } from "@/lib/session";
 import type { Ticket } from "@/lib/types";
 
 export async function GET() {
+  const session = await getSessionUser();
+  if (!session) return errorResponse(new Error("Unauthorized"), 401);
   return listCollectionResponse<Ticket>("tickets");
 }
 
 export async function POST(request: Request) {
   try {
+    const session = await getSessionUser();
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const body = await request.json();
     const doc: Ticket = {
       id: `HD-${Math.floor(5600 + Math.random() * 400)}`,

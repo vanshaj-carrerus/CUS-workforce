@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { listCollection, errorResponse } from "@/lib/mongo-helpers";
+import { requireRole } from "@/lib/session";
 
 export async function GET() {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const db = await getDb();
     const [
       summary,

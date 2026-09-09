@@ -12,6 +12,17 @@ export interface SendResult {
   reason?: string;
 }
 
+export interface LeaveRequestEmailParams {
+  to: string;
+  employeeName: string;
+  employeeId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string;
+}
+
 function getTransporter() {
   const { EMAIL_USER, EMAIL_PASS } = process.env;
   if (!EMAIL_USER || !EMAIL_PASS) {
@@ -63,6 +74,43 @@ export async function sendAccessEmail({ to, name, employeeId, setupUrl }: Access
     return { sent: true };
   } catch (error) {
     console.error("[mailer] Failed to send access email:", error);
+    return { sent: false, reason: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+export async function sendLeaveRequestNotification(params: LeaveRequestEmailParams): Promise<SendResult> {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn(`[mailer] EMAIL_USER/EMAIL_PASS not configured — skipped leave notification to ${params.to}.`);
+    return { sent: false, reason: "Email credentials not configured" };
+  }
+
+  const from = process.env.EMAIL_USER;
+
+  try {
+    await transporter.sendMail({
+      from: `"Custech HR" <${from}>`,
+      to: params.to,
+      subject: `New leave request awaiting approval — ${params.employeeName}`,
+      html: `
+        <div style="font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 480px; margin: 0 auto; color:#0f172a;">
+          <div style="width:40px;height:40px;border-radius:10px;background:#4338ca;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;">CT</div>
+          <h2 style="margin-top:20px;">A new leave request needs your approval</h2>
+          <table style="width:100%;background:#f6f7fb;border-radius:12px;padding:16px;margin:20px 0;border-collapse:collapse;">
+            <tr><td style="padding:6px 0;color:#64748b;">Employee</td><td style="padding:6px 0;font-weight:600;">${params.employeeName} (${params.employeeId})</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;">Leave Type</td><td style="padding:6px 0;font-weight:600;">${params.type}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;">Dates</td><td style="padding:6px 0;font-weight:600;">${params.startDate} to ${params.endDate} (${params.days} day${params.days > 1 ? "s" : ""})</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;">Reason</td><td style="padding:6px 0;font-weight:600;">${params.reason}</td></tr>
+          </table>
+          <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
+            Sign in to the Custech HR Portal and open the Admin Panel or Leave Management to approve or reject this request.
+          </p>
+        </div>
+      `,
+    });
+    return { sent: true };
+  } catch (error) {
+    console.error("[mailer] Failed to send leave request notification:", error);
     return { sent: false, reason: error instanceof Error ? error.message : "Unknown error" };
   }
 }

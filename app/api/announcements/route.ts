@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { listCollectionResponse, errorResponse } from "@/lib/mongo-helpers";
+import { requireRole } from "@/lib/session";
 import type { Announcement } from "@/lib/types";
 
 export async function GET() {
@@ -9,6 +10,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const body = await request.json();
 
     if (!body.title || !body.content || !body.category) {

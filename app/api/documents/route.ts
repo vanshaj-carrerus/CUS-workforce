@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { getDb } from "@/lib/mongodb";
 import { listCollectionResponse, errorResponse } from "@/lib/mongo-helpers";
+import { requireRole } from "@/lib/session";
 import type { PolicyDocument } from "@/lib/types";
 
 export async function GET() {
@@ -13,6 +14,8 @@ const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "documents");
 
 export async function POST(request: Request) {
   try {
+    const session = await requireRole(["hr-admin"]);
+    if (!session) return errorResponse(new Error("Unauthorized"), 401);
     const form = await request.formData();
     const name = form.get("name");
     const category = form.get("category");

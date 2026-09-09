@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { errorResponse } from "@/lib/mongo-helpers";
+import { getSessionUser } from "@/lib/session";
 import type { AttendanceRecord } from "@/lib/types";
 
 export interface TodayAttendance {
@@ -20,6 +21,10 @@ function todayDate() {
 export async function GET(request: Request) {
   try {
     const employeeId = new URL(request.url).searchParams.get("employeeId");
+    const session = await getSessionUser();
+    if (!session || (employeeId && session.employeeId !== employeeId && session.role !== "hr-admin")) {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
     const db = await getDb();
     const date = todayDate();
 
@@ -53,6 +58,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { action, employeeId } = await request.json();
+    const session = await getSessionUser();
+    if (!session || (employeeId && session.employeeId !== employeeId)) {
+      return errorResponse(new Error("Unauthorized"), 401);
+    }
     const db = await getDb();
     const col = db.collection<TodayAttendance>("attendanceToday");
     const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });

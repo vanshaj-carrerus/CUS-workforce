@@ -5,8 +5,12 @@ import { sendAccessEmail } from "@/lib/mailer";
 import type { EmployeeRecord, LeaveBalance } from "@/lib/types";
 import { normalizeWeekendOff } from "@/lib/weekend-off";
 import { annualLeaveForGender } from "@/lib/leave-policy";
+import { requireRole } from "@/lib/session";
 
 export async function GET() {
+  const session = await requireRole(["hr-admin"]);
+  if (!session) return errorResponse(new Error("Unauthorized"), 401);
+
   const db = await getDb();
     const docs = await db
       .collection<EmployeeRecord>("employeeRecords")
