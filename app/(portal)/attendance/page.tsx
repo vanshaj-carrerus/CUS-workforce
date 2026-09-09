@@ -30,6 +30,8 @@ interface RosterEmployee {
   weekendOff: WeekendOffPattern;
 }
 
+const ALL_EMPLOYEES = "__all__";
+
 const teamStatusOptions: { status: TeamAttendanceStatus; label: string }[] = [
   { status: "full-day", label: "Full Day" },
   { status: "half-day", label: "Half Day" },
@@ -78,6 +80,11 @@ export default function AttendancePage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [weekendOff, setWeekendOff] = useState<WeekendOffPattern>("sunday-only");
 
+  const [historyMonth, setHistoryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [historyTarget, setHistoryTarget] = useState(ALL_EMPLOYEES);
+  const [historyByEmployee, setHistoryByEmployee] = useState<Record<string, AttendanceRecord[]>>({});
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const isHr = isHrPortalUser(user);
 
   useEffect(() => {
@@ -125,6 +132,20 @@ export default function AttendancePage() {
   }, [user, isHr]);
 
   useEffect(() => {
+    if (!isHr || roster.length === 0) return;
+    setHistoryLoading(true);
+    Promise.all(
+      roster.map((emp) =>
+        apiGet<AttendanceRecord[]>(`/api/attendance?employeeId=${encodeURIComponent(emp.employeeId)}`).then(
+          (records) => [emp.employeeId, records] as const
+        )
+      )
+    )
+      .then((entries) => setHistoryByEmployee(Object.fromEntries(entries)))
+      .finally(() => setHistoryLoading(false));
+  }, [isHr, roster]);
+
+  useEffect(() => {
     if (!isHr) return;
     setTeamLoading(true);
     apiGet<TeamAttendanceRecord[]>(`/api/team-attendance?date=${teamDate}`)
@@ -170,6 +191,22 @@ export default function AttendancePage() {
       return { value, label: monthLabel(value) };
     });
   }, []);
+
+  const teamMonthlySummaries = useMemo(() => {
+    return roster.map((emp) => {
+      const records = (historyByEmployee[emp.employeeId] ?? []).filter((r) => r.date.startsWith(historyMonth));
+      const fullDay = records.filter((r) => r.status === "full-day" || r.status === "present").length;
+      const halfDay = records.filter((r) => r.status === "half-day").length;
+      const leave = records.filter((r) => r.status === "leave").length;
+      const absent = records.filter((r) => r.status === "absent").length;
+      return { emp, fullDay, halfDay, leave, absent, pct: monthlyAttendancePercent(records, historyMonth) };
+    });
+  }, [roster, historyByEmployee, historyMonth]);
+
+  const selectedEmployeeHistory = useMemo(() => {
+    if (historyTarget === ALL_EMPLOYEES) return [];
+    return (historyByEmployee[historyTarget] ?? []).filter((r) => r.date.startsWith(historyMonth));
+  }, [historyTarget, historyByEmployee, historyMonth]);
 
   const paddedCalendar = useMemo(() => {
     const [y, m] = monthFilter.split("-").map(Number);
@@ -382,6 +419,7 @@ export default function AttendancePage() {
       )}
 
       {isHr && (
+        <>
         <Card>
           <CardHeader
             title="Team Attendance"
@@ -461,6 +499,103 @@ export default function AttendancePage() {
             </TableWrap>
           )}
         </Card>
+
+        <Card>
+          <CardHeader
+            title="All Employees Attendance History"
+            subtitle="Browse past attendance by month, for one employee or the whole team"
+          />
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Select value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)}>
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+            <Select value={historyTarget} onChange={(e) => setHistoryTarget(e.target.value)}>
+              <option value={ALL_EMPLOYEES}>All Employees</option>
+              {roster.map((r) => (
+                <option key={r.employeeId} value={r.employeeId}>
+                  {r.name} · {r.employeeId}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {historyLoading || rosterLoading ? (
+            <TableSkeleton />
+          ) : historyTarget === ALL_EMPLOYEES ? (
+            teamMonthlySummaries.length === 0 ? (
+              <EmptyState icon={Users} title="No employees found" description="Add employees from Employee Records first." />
+            ) : (
+              <TableWrap>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>Employee</Th>
+                      <Th>Full Day</Th>
+                      <Th>Half Day</Th>
+                      <Th>Leave</Th>
+                      <Th>Absent</Th>
+                      <Th>Attendance %</Th>
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {teamMonthlySummaries.map(({ emp, fullDay, halfDay, leave, absent, pct }) => (
+                      <Tr key={emp.employeeId}>
+                        <Td>
+                          <button
+                            onClick={() => setHistoryTarget(emp.employeeId)}
+                            className="font-medium text-brand hover:underline"
+                          >
+                            {emp.name}
+                          </button>
+                          <p className="text-xs text-muted">{emp.department}</p>
+                        </Td>
+                        <Td>{fullDay}</Td>
+                        <Td>{halfDay}</Td>
+                        <Td>{leave}</Td>
+                        <Td>{absent}</Td>
+                        <Td>{pct}%</Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrap>
+            )
+          ) : selectedEmployeeHistory.length === 0 ? (
+            <EmptyState title="No attendance records found" description="Nothing marked for this employee in this month yet." />
+          ) : (
+            <TableWrap>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>Date</Th>
+                    <Th>Check-in</Th>
+                    <Th>Check-out</Th>
+                    <Th>Working Hours</Th>
+                    <Th>Status</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {selectedEmployeeHistory.map((r) => (
+                    <Tr key={r.date}>
+                      <Td>{formatDate(r.date)}</Td>
+                      <Td>{r.checkIn ?? "—"}</Td>
+                      <Td>{r.checkOut ?? "—"}</Td>
+                      <Td>{r.hours ?? "—"}</Td>
+                      <Td>
+                        <StatusBadge status={r.status === "present" ? "full-day" : r.status} />
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )}
+        </Card>
+        </>
       )}
 
       {!isHr && (
