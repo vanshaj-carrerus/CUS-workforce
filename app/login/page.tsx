@@ -5,34 +5,21 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight, MailCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiPost } from "@/lib/api-client";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
-import type { Employee, Role } from "@/lib/types";
-
-const roleDescriptions: Record<Role, string> = {
-  employee: "Standard employee access",
-  manager: "Team & approvals access",
-  "hr-admin": "Full HR administrator access",
-};
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [email, setEmail] = useState("aditi.sharma@custech.co");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [resending, setResending] = useState(false);
-
-  useEffect(() => {
-    apiGet<Employee[]>("/api/employees").then(setEmployees).catch(() => setEmployees([]));
-  }, []);
 
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
@@ -71,12 +58,6 @@ export default function LoginPage() {
     } finally {
       setResending(false);
     }
-  }
-
-  function pickDemo(emp: Employee) {
-    setSelectedEmail(emp.email);
-    setEmail(emp.email);
-    setPassword("demo1234");
   }
 
   return (
@@ -209,29 +190,6 @@ export default function LoginPage() {
               {submitting && "Signing in..."}
             </Button>
           </form>
-
-          <div className="mt-8">
-            <p className="mb-2.5 text-center text-xs font-medium uppercase tracking-wide text-muted lg:text-left">
-              Quick demo access
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {employees.map((emp) => (
-                <button
-                  key={emp.email}
-                  type="button"
-                  onClick={() => pickDemo(emp)}
-                  className={`rounded-xl border px-3 py-2.5 text-left text-xs transition-colors ${
-                    selectedEmail === emp.email
-                      ? "border-brand bg-brand-light text-brand-dark"
-                      : "border-border bg-surface text-muted hover:border-brand/40 hover:bg-slate-50"
-                  }`}
-                >
-                  <p className="font-medium text-foreground">{emp.name}</p>
-                  <p className="mt-0.5 text-[11px] text-muted">{roleDescriptions[emp.role]}</p>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
