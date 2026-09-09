@@ -84,7 +84,7 @@ export default function DashboardPage() {
 
   const quickActions = [
     { label: "Apply Leave", icon: CalendarPlus, href: "/leave" },
-    { label: "View Payslip", icon: Wallet, href: "/payroll" },
+
     { label: "Attendance", icon: CalendarCheck, href: "/attendance" },
     { label: "Raise HR Request", icon: LifeBuoy, href: "/helpdesk" },
   ];
